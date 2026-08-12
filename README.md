@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Martin - 金融行情查看系统
 
-## Getting Started
+基于 Next.js、Tailwind CSS 和 shadcn/ui 的金融行情查看系统。目前已接入 Tushare Pro 的最小验证接口。
 
-First, run the development server:
+## 启动项目
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+打开 [http://localhost:3000](http://localhost:3000)。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tushare 最小验证
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Tushare Pro 调用需要注册账号并获取 Token：[获取 Token 的官方说明](https://tushare.pro/document/1?doc_id=39)。
 
-## Learn More
+复制环境变量示例并填入自己的 Token：
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+cp .env.example .env.local
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+然后编辑 `.env.local`：
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```env
+TUSHARE_TOKEN=你的_tushare_token
+```
 
-## Deploy on Vercel
+启动项目后，可以在首页：
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- 按股票代码、名称或拼音搜索股票；
+- 将股票收藏到浏览器本地的自选列表；
+- 查看自选股最近交易日的收盘价、涨跌幅、最高价和最低价。
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+搜索由服务端调用 `stock_basic` 接口并缓存股票列表，行情由服务端调用 `daily` 接口。Token 只在服务端使用，不会发送到浏览器。
+
+接口请求格式参考 [Tushare HTTP API 文档](https://tushare.pro/document/1?doc_id=130)。
