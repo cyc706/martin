@@ -1,69 +1,81 @@
-import Image from "next/image";
+import { ArrowUpRight, Check } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <main className="flex min-h-screen items-center justify-center bg-muted/30 px-6 py-16">
+      <div className="w-full max-w-4xl">
+        <div className="mb-10 max-w-2xl">
+          <p className="mb-3 text-sm font-medium text-muted-foreground">
+            Martin
+          </p>
+          <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+            金融行情查看系统
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-4 text-lg leading-8 text-muted-foreground">
+            集中查看市场行情与资产表现，快速掌握重要金融数据。
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="grid gap-6 md:grid-cols-[1.3fr_1fr]">
+          <Card>
+            <CardHeader>
+              <CardTitle>市场概览</CardTitle>
+              <CardDescription>
+                一站式了解你关注的金融市场。
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                {["统一查看多类金融资产", "清晰直观的行情展示", "为后续分析提供数据基础"].map(
+                  (item) => (
+                    <div key={item} className="flex items-center gap-2">
+                      <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <Check className="size-3.5" />
+                      </span>
+                      {item}
+                    </div>
+                  ),
+                )}
+              </div>
+            </CardContent>
+            <CardFooter className="gap-3">
+              <Button>
+                查看行情
+                <ArrowUpRight />
+              </Button>
+              <Button variant="outline">进入系统</Button>
+            </CardFooter>
+          </Card>
+
+          <Card size="sm">
+            <CardHeader>
+              <CardTitle>快速开始</CardTitle>
+              <CardDescription>选择市场与关注的标的。</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <code className="block rounded-lg bg-muted px-3 py-2 font-mono text-xs text-muted-foreground">
+                选择市场 / 输入标的 / 查看详情
+              </code>
+            </CardContent>
+            <CardFooter>
+              <Button variant="ghost" size="sm" className="ml-auto">
+                开始查看
+                <ArrowUpRight />
+              </Button>
+            </CardFooter>
+          </Card>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }
