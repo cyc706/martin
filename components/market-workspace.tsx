@@ -24,15 +24,20 @@ import {
 import { InputGroupAddon } from "@/components/ui/input-group";
 import { TradingViewWidget } from "@/components/trading-view-widget";
 
-type Stock = {
-  ts_code: string;
+type Ticker = {
+  market: "CN" | "US" | "HK" | "CRYPTO";
+  assetType: "stock" | "crypto";
+  exchange: string;
   symbol: string;
   name: string;
-  cnspell: string;
-  area: string;
-  industry: string;
-  market: string;
-  exchange: string;
+  nameEn?: string;
+  currency: "CNY" | "USD" | "HKD" | "USDT" | "USDC";
+  status: "active" | "inactive";
+  tradingViewSymbol?: string;
+  source?: {
+    provider: string;
+    symbol: string;
+  };
 };
 
 type Quote = {
@@ -47,15 +52,17 @@ type Quote = {
 
 type Status = "idle" | "loading" | "success" | "error";
 
-const DEFAULT_FAVORITE: Stock = {
-  ts_code: "600519.SH",
+const DEFAULT_FAVORITE: Ticker = {
+  market: "CN",
+  assetType: "stock",
+  exchange: "SSE",
   symbol: "600519",
   name: "贵州茅台",
-  cnspell: "gzmt",
-  area: "贵州",
-  industry: "白酒",
-  market: "主板",
-  exchange: "SSE",
+  nameEn: "Kweichow Moutai Co.,Ltd.",
+  currency: "CNY",
+  status: "active",
+  tradingViewSymbol: "SSE:600519",
+  source: { provider: "tushare", symbol: "600519.SH" },
 };
 
 function formatNumber(value: number | null | undefined) {
@@ -67,28 +74,88 @@ function formatPercent(value: number | null | undefined) {
   return `${value > 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
-function toTradingViewSymbol(stock: Stock) {
-  const [code, suffix] = stock.ts_code.split(".");
-  const exchange =
-    suffix === "SH"
-      ? "SSE"
-      : suffix === "SZ"
-        ? "SZSE"
-        : suffix === "BJ"
-          ? "BSE"
-          : stock.exchange === "SSE" || stock.exchange === "SZSE"
-            ? stock.exchange
-            : null;
+function tickerKey(ticker: Ticker) {
+  return `${ticker.exchange}:${ticker.symbol}`;
+}
 
-  return exchange ? `${exchange}:${code}` : null;
+function toTradingViewSymbol(ticker: Ticker) {
+  if (ticker.tradingViewSymbol) return ticker.tradingViewSymbol;
+
+  const sourceSymbol = ticker.source?.symbol;
+  if (sourceSymbol) {
+    const [code, suffix] = sourceSymbol.split(".");
+    const exchange =
+      suffix === "SH"
+        ? "SSE"
+        : suffix === "SZ"
+          ? "SZSE"
+          : suffix === "BJ"
+            ? "BSE"
+            : null;
+    if (exchange) return `${exchange}:${code}`;
+  }
+
+  return ticker.exchange && ticker.symbol
+    ? `${ticker.exchange}:${ticker.symbol}`
+    : null;
+}
+
+function quoteCode(ticker: Ticker) {
+  const sourceSymbol = ticker.source?.symbol;
+  return sourceSymbol && /\.(SH|SZ|BJ)$/.test(sourceSymbol)
+    ? sourceSymbol
+    : null;
+}
+
+function normalizeFavorite(value: unknown): Ticker | null {
+  if (!value || typeof value !== "object") return null;
+
+  const item = value as Partial<Ticker> & { ts_code?: string };
+
+  if (item.ts_code && item.name) {
+    const [code, suffix] = item.ts_code.split(".");
+    const exchange =
+      suffix === "SH" ? "SSE" : suffix === "SZ" ? "SZSE" : "BSE";
+    return {
+      ...DEFAULT_FAVORITE,
+      exchange,
+      symbol: code,
+      name: item.name,
+      source: { provider: "tushare", symbol: item.ts_code },
+      tradingViewSymbol: `${exchange}:${code}`,
+    };
+  }
+
+  if (item.exchange && item.symbol && item.name) {
+    return {
+      market:
+        item.market === "CN" ||
+        item.market === "US" ||
+        item.market === "HK" ||
+        item.market === "CRYPTO"
+          ? item.market
+          : "CN",
+      assetType: item.assetType === "crypto" ? "crypto" : "stock",
+      exchange: item.exchange,
+      symbol: item.symbol,
+      name: item.name,
+      nameEn: item.nameEn,
+      currency: item.currency ?? "CNY",
+      status: item.status ?? "active",
+      tradingViewSymbol: item.tradingViewSymbol,
+      source: item.source,
+    };
+  }
+
+  return null;
 }
 
 export function MarketWorkspace() {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Stock[]>([]);
+  const [results, setResults] = useState<Ticker[]>([]);
   const [searchStatus, setSearchStatus] = useState<Status>("idle");
   const [searchMessage, setSearchMessage] = useState("");
-  const [favorites, setFavorites] = useState<Stock[]>([]);
+  const [favorites, setFavorites] = useState<Ticker[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [quoteStatus, setQuoteStatus] = useState<Status>("idle");
   const [quoteMessage, setQuoteMessage] = useState("");
@@ -105,19 +172,22 @@ export function MarketWorkspace() {
         const stored = window.localStorage.getItem("martin-favorites");
         if (stored) {
           const parsed = JSON.parse(stored);
+          const parsedFavorites = Array.isArray(parsed)
+            ? parsed
+                .map(normalizeFavorite)
+                .filter((item): item is Ticker => item !== null)
+            : [];
           const nextFavorites =
-            Array.isArray(parsed) && parsed.length > 0
-              ? parsed
-              : [DEFAULT_FAVORITE];
+            parsedFavorites.length > 0 ? parsedFavorites : [DEFAULT_FAVORITE];
           setFavorites(nextFavorites);
-          setSelectedAssetCode(nextFavorites[0].ts_code);
+          setSelectedAssetCode(tickerKey(nextFavorites[0]));
         } else {
           setFavorites([DEFAULT_FAVORITE]);
-          setSelectedAssetCode(DEFAULT_FAVORITE.ts_code);
+          setSelectedAssetCode(tickerKey(DEFAULT_FAVORITE));
         }
       } catch {
         setFavorites([DEFAULT_FAVORITE]);
-        setSelectedAssetCode(DEFAULT_FAVORITE.ts_code);
+        setSelectedAssetCode(tickerKey(DEFAULT_FAVORITE));
       } finally {
         setHydrated(true);
       }
@@ -143,15 +213,15 @@ export function MarketWorkspace() {
       setSearchStatus("loading");
       setSearchMessage("");
 
-      fetch(`/api/tushare/stocks?q=${encodeURIComponent(keyword)}`, {
+      fetch(`/api/tickers?q=${encodeURIComponent(keyword)}`, {
         signal: controller.signal,
       })
         .then(async (response) => {
           const payload = (await response.json()) as {
-            items?: Stock[];
+            items?: Ticker[];
             message?: string;
           };
-          if (!response.ok) throw new Error(payload.message || "股票搜索失败");
+          if (!response.ok) throw new Error(payload.message || "资产搜索失败");
           return payload.items ?? [];
         })
         .then((items) => {
@@ -160,7 +230,7 @@ export function MarketWorkspace() {
         })
         .catch((error) => {
           if (error.name === "AbortError") return;
-          setSearchMessage(error instanceof Error ? error.message : "股票搜索失败");
+          setSearchMessage(error instanceof Error ? error.message : "资产搜索失败");
           setSearchStatus("error");
         });
     }, 300);
@@ -174,7 +244,22 @@ export function MarketWorkspace() {
   useEffect(() => {
     if (!hydrated) return;
 
-    if (favorites.length === 0) return;
+    const quoteCodes = favorites
+      .map(quoteCode)
+      .filter((code): code is string => code !== null);
+
+    if (quoteCodes.length === 0) {
+      let active = true;
+      queueMicrotask(() => {
+        if (!active) return;
+        setQuotes([]);
+        setQuoteStatus("success");
+        setQuoteMessage("");
+      });
+      return () => {
+        active = false;
+      };
+    }
 
     const controller = new AbortController();
     let active = true;
@@ -187,7 +272,7 @@ export function MarketWorkspace() {
 
       fetch(
         `/api/tushare/quotes?codes=${encodeURIComponent(
-          favorites.map((stock) => stock.ts_code).join(","),
+          quoteCodes.join(","),
         )}`,
         { signal: controller.signal },
       )
@@ -216,37 +301,37 @@ export function MarketWorkspace() {
     };
   }, [favorites, hydrated]);
 
-  function toggleFavorite(stock: Stock) {
+  function toggleFavorite(stock: Ticker) {
     setFavorites((current) =>
-      current.filter((item) => item.ts_code !== stock.ts_code),
+      current.filter((item) => tickerKey(item) !== tickerKey(stock)),
     );
     setSelectedAssetCode((current) =>
-      current === stock.ts_code ? null : current,
+      current === tickerKey(stock) ? null : current,
     );
   }
 
-  function selectFavorite(stock: Stock) {
+  function selectFavorite(stock: Ticker) {
     setFavorites((current) =>
-      current.some((item) => item.ts_code === stock.ts_code)
+      current.some((item) => tickerKey(item) === tickerKey(stock))
         ? current
         : [...current, stock],
     );
-    setSelectedAssetCode(stock.ts_code);
+    setSelectedAssetCode(tickerKey(stock));
     setQuery("");
     setResults([]);
     setSearchStatus("idle");
   }
 
   const quoteMap = new Map(quotes.map((quote) => [quote.ts_code, quote]));
-  const favoriteCodes = new Set(favorites.map((stock) => stock.ts_code));
+  const favoriteCodes = new Set(favorites.map(tickerKey));
   const selectedAsset = favorites.find(
-    (stock) => stock.ts_code === selectedAssetCode,
+    (stock) => tickerKey(stock) === selectedAssetCode,
   );
   const tradingViewSymbol = selectedAsset
     ? toTradingViewSymbol(selectedAsset) ?? "BINANCE:BTCUSDT"
     : "BINANCE:BTCUSDT";
   const overviewName = selectedAsset?.name ?? "Bitcoin";
-  const overviewCode = selectedAsset?.ts_code ?? "BTCUSDT";
+  const overviewCode = selectedAsset?.symbol ?? "BTCUSDT";
   const overviewMarket = selectedAsset
     ? selectedAsset.exchange || selectedAsset.market || "A股"
     : "Binance";
@@ -275,7 +360,7 @@ export function MarketWorkspace() {
                 资产类型
               </p>
               <p className="mt-0.5 text-xs font-medium">
-                {selectedAsset ? "Stock" : "Crypto"}
+                {selectedAsset?.assetType === "crypto" ? "Crypto" : "Stock"}
               </p>
             </div>
             <div>
@@ -300,7 +385,8 @@ export function MarketWorkspace() {
       >
         <div className="min-h-0 flex-1 overflow-y-auto p-1">
           <div className="space-y-1">
-            <Combobox<Stock>
+            <Combobox<Ticker>
+              items={results}
               value={null}
               inputValue={query}
               onInputValueChange={(value) => {
@@ -317,11 +403,12 @@ export function MarketWorkspace() {
                 if (!open) setQuery("");
               }}
               autoHighlight
+              filter={null}
               itemToStringLabel={(stock) =>
-                stock ? `${stock.name} ${stock.ts_code} ${stock.cnspell}` : ""
+                stock ? `${stock.name} ${stock.symbol} ${stock.exchange}` : ""
               }
               isItemEqualToValue={(first, second) =>
-                first?.ts_code === second?.ts_code
+                first && second ? tickerKey(first) === tickerKey(second) : first === second
               }
             >
               <ComboboxInput
@@ -341,11 +428,11 @@ export function MarketWorkspace() {
               <ComboboxContent>
                 <ComboboxList>
                   <ComboboxEmpty>
-                    {searchStatus === "error" ? searchMessage : "没有找到匹配的股票。"}
+                    {searchStatus === "error" ? searchMessage : "没有找到匹配的资产。"}
                   </ComboboxEmpty>
                   {results.map((stock) => (
                     <ComboboxItem
-                      key={stock.ts_code}
+                      key={tickerKey(stock)}
                       value={stock}
                       className="py-2"
                     >
@@ -353,16 +440,16 @@ export function MarketWorkspace() {
                         <div className="flex items-center gap-2">
                           <span className="truncate font-medium">{stock.name}</span>
                           <span className="font-mono text-xs text-muted-foreground">
-                            {stock.ts_code}
+                            {stock.exchange}:{stock.symbol}
                           </span>
                         </div>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {stock.market || stock.exchange || "A股"}
-                          {stock.industry ? ` · ${stock.industry}` : ""}
+                          {stock.market} · {stock.assetType === "crypto" ? "加密货币" : "股票"}
+                          {stock.nameEn && stock.nameEn !== stock.name ? ` · ${stock.nameEn}` : ""}
                         </p>
                       </div>
                       <span className="ml-auto text-xs text-muted-foreground">
-                        {favoriteCodes.has(stock.ts_code) ? "已收藏" : "回车收藏"}
+                        {favoriteCodes.has(tickerKey(stock)) ? "已收藏" : "回车收藏"}
                       </span>
                     </ComboboxItem>
                   ))}
@@ -372,7 +459,7 @@ export function MarketWorkspace() {
             {favorites.length === 0 ? (
               <div className="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">
                 <Star className="mx-auto mb-2 size-5" />
-                搜索股票后点击「收藏」，这里会显示资产。
+                搜索资产后点击「收藏」，这里会显示资产。
               </div>
             ) : quoteStatus === "loading" ? (
               <div className="flex items-center justify-center gap-2 rounded-md border px-3 py-8 text-sm text-muted-foreground">
@@ -387,22 +474,22 @@ export function MarketWorkspace() {
             ) : (
               <div className="space-y-1">
                 {favorites.map((stock) => {
-                  const quote = quoteMap.get(stock.ts_code);
+                  const quote = quoteMap.get(quoteCode(stock) ?? "");
                   const isPositive = (quote?.pct_chg ?? 0) > 0;
                   return (
                     <div
-                      key={stock.ts_code}
+                      key={tickerKey(stock)}
                       role="button"
                       tabIndex={0}
-                      onClick={() => setSelectedAssetCode(stock.ts_code)}
+                      onClick={() => setSelectedAssetCode(tickerKey(stock))}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
-                          setSelectedAssetCode(stock.ts_code);
+                          setSelectedAssetCode(tickerKey(stock));
                         }
                       }}
                       className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-3 transition-colors hover:bg-muted/60 ${
-                        selectedAssetCode === stock.ts_code
+                        selectedAssetCode === tickerKey(stock)
                           ? "border-primary/40 bg-muted/40"
                           : ""
                       }`}
@@ -411,7 +498,7 @@ export function MarketWorkspace() {
                         <div className="truncate text-sm font-medium">{stock.name}</div>
                         <div className="mt-1 flex items-center gap-2">
                           <span className="font-mono text-xs text-muted-foreground">
-                            {stock.ts_code}
+                            {stock.source?.symbol ?? stock.symbol}
                           </span>
                           <span className="text-xs text-muted-foreground">
                           {quote?.trade_date ? `${quote.trade_date} · ` : "暂无最新数据 · "}
@@ -447,11 +534,11 @@ export function MarketWorkspace() {
                 <p className="text-sm font-medium">数据源</p>
               </div>
               <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                使用 Tushare Pro daily 接口获取最近交易日行情数据。
+                资产搜索来自 MongoDB tickers；A 股行情使用 Tushare Pro daily 接口。
               </p>
             </div>
             <div className="rounded-md border border-dashed p-3 text-xs leading-5 text-muted-foreground">
-              搜索股票后按回车即可加入收藏。行情数据仅作展示，不构成投资建议。
+              搜索资产后按回车即可加入收藏。行情数据仅作展示，不构成投资建议。
             </div>
           </div>
         </div>
