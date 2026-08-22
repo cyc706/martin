@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import {
+  ensureDefaultTickers,
   listTickers,
   type TickerAssetType,
   type TickerListFilters,
@@ -9,7 +10,7 @@ import {
 } from "@/lib/tickers";
 
 const MARKETS = new Set<TickerMarket>(["CN", "US", "HK", "CRYPTO"]);
-const ASSET_TYPES = new Set<TickerAssetType>(["stock", "crypto"]);
+const ASSET_TYPES = new Set<TickerAssetType>(["index", "stock", "crypto"]);
 const STATUSES = new Set<TickerStatus>(["active", "inactive"]);
 
 function getEnumValue<T extends string>(
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
   const status = getEnumValue(searchParams.get("status"), STATUSES, (value) =>
     value.toLowerCase(),
   );
-  const exchange = searchParams.get("exchange")?.trim();
+  const exchangeCode = searchParams.get("exchange")?.trim();
   const requestedLimit = Number(searchParams.get("limit") ?? 20);
 
   if (market === null || assetType === null || status === null) {
@@ -54,19 +55,21 @@ export async function GET(request: Request) {
     market,
     assetType,
     status: status ?? "active",
-    exchange: exchange || undefined,
+    exchangeCode: exchangeCode || undefined,
     limit: Math.min(requestedLimit, 50),
   };
 
   try {
+    await ensureDefaultTickers();
     const tickers = await listTickers(filters);
     const items = tickers.map((ticker) => ({
       market: ticker.market,
       assetType: ticker.assetType,
-      exchange: ticker.exchange,
+      exchange: ticker.exchangeCode,
       symbol: ticker.symbol,
       name: ticker.name,
       nameEn: ticker.nameEn,
+      description: ticker.description,
       currency: ticker.currency,
       status: ticker.status,
       tradingViewSymbol: ticker.tradingViewSymbol,

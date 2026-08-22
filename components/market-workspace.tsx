@@ -26,11 +26,12 @@ import { TradingViewWidget } from "@/components/trading-view-widget";
 
 type Ticker = {
   market: "CN" | "US" | "HK" | "CRYPTO";
-  assetType: "stock" | "crypto";
+  assetType: "index" | "stock" | "crypto";
   exchange: string;
   symbol: string;
   name: string;
   nameEn?: string;
+  description?: string;
   currency: "CNY" | "USD" | "HKD" | "USDT" | "USDC";
   status: "active" | "inactive";
   tradingViewSymbol?: string;
@@ -135,7 +136,10 @@ function normalizeFavorite(value: unknown): Ticker | null {
         item.market === "CRYPTO"
           ? item.market
           : "CN",
-      assetType: item.assetType === "crypto" ? "crypto" : "stock",
+      assetType:
+        item.assetType === "crypto" || item.assetType === "index"
+          ? item.assetType
+          : "stock",
       exchange: item.exchange,
       symbol: item.symbol,
       name: item.name,
@@ -360,7 +364,11 @@ export function MarketWorkspace() {
                 资产类型
               </p>
               <p className="mt-0.5 text-xs font-medium">
-                {selectedAsset?.assetType === "crypto" ? "Crypto" : "Stock"}
+                {selectedAsset?.assetType === "crypto"
+                  ? "Crypto"
+                  : selectedAsset?.assetType === "index"
+                    ? "Index"
+                    : "Stock"}
               </p>
             </div>
             <div>
@@ -444,7 +452,7 @@ export function MarketWorkspace() {
                           </span>
                         </div>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {stock.market} · {stock.assetType === "crypto" ? "加密货币" : "股票"}
+                          {stock.market} · {stock.assetType === "crypto" ? "加密货币" : stock.assetType === "index" ? "指数" : "股票"}
                           {stock.nameEn && stock.nameEn !== stock.name ? ` · ${stock.nameEn}` : ""}
                         </p>
                       </div>
